@@ -29,6 +29,11 @@ public class InventoryRepository {
 
     public long createMovement(long productId, String movementType, int quantityDelta,
                                String referenceType, Long referenceId, String note) {
+        return createMovement(productId, movementType, quantityDelta, referenceType, referenceId, note, LocalDateTime.now());
+    }
+
+    public long createMovement(long productId, String movementType, int quantityDelta,
+                               String referenceType, Long referenceId, String note, LocalDateTime createdAt) {
         java.util.Map<String, Object> params = new java.util.HashMap<>();
         params.put("product_id", productId);
         params.put("movement_type", movementType);
@@ -36,7 +41,7 @@ public class InventoryRepository {
         params.put("reference_type", referenceType);
         params.put("reference_id", referenceId);
         params.put("note", note);
-        params.put("created_at", LocalDateTime.now());
+        params.put("created_at", createdAt);
         Number key = simpleJdbcInsert.executeAndReturnKey(params);
         return key.longValue();
     }
