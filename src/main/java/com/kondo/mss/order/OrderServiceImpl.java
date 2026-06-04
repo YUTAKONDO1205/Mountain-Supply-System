@@ -1,9 +1,13 @@
 package com.kondo.mss.order;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -19,6 +23,10 @@ import com.kondo.mss.product.ProductRepository;
 
 @Service
 public class OrderServiceImpl implements OrderService {
+
+    private static final String STATUS_CONFIRMED = "CONFIRMED";
+    private static final String STATUS_CANCELLED = "CANCELLED";
+    private static final Set<String> ALLOWED_STATUSES = Set.of(STATUS_CONFIRMED, STATUS_CANCELLED);
 
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
@@ -71,7 +79,7 @@ public class OrderServiceImpl implements OrderService {
 
         long orderId = orderRepository.createOrder(
                 request.customerName(),
-                "CONFIRMED",
+                STATUS_CONFIRMED,
                 totalAmount,
                 LocalDateTime.now(),
                 createdBy);
@@ -83,6 +91,40 @@ public class OrderServiceImpl implements OrderService {
             inventoryRepository.createMovement(item.productId(), "OUT", -item.quantity(), "ORDER", orderId, "受注出庫");
         });
 
+        return findById(orderId);
+    }
+
+    @Override
+    public List<OrderSummaryResponse> findOrders(LocalDate from, LocalDate to, String status) {
+        LocalDateTime fromDateTime = from == null ? null : from.atStartOfDay();
+        LocalDateTime toDateTime = to == null ? null : to.atTime(LocalTime.MAX);
+
+        String normalizedStatus = null;
+        if (status != null && !status.isBlank()) {
+            normalizedStatus = status.toUpperCase(Locale.ROOT);
+            if (!ALLOWED_STATUSES.contains(normalizedStatus)) {
+                throw new BusinessException("statusはCONFIRMEDまたはCANCELLEDで指定してください。");
+            }
+        }
+
+        return orderRepository.findOrderSummaries(fromDateTime, toDateTime, normalizedStatus);
+    }
+
+    @Override
+    @Transactional
+    public OrderDetailResponse cancel(long orderId) {
+        OrderHeader header = orderRepository.findOrderHeaderById(orderId)
+                .orElseThrow(() -> new NotFoundException("注文が見つかりません。 orderId=" + orderId));
+
+        if (STATUS_CANCELLED.equals(header.orderStatus())) {
+            throw new BusinessException("この注文は既にキャンセル済みです。 orderId=" + orderId);
+        }
+
+        List<OrderItemDetail> items = orderRepository.findOrderItemsByOrderId(orderId);
+        items.forEach(item -> inventoryRepository.createMovement(
+                item.productId(), "IN", item.quantity(), "ORDER_CANCEL", orderId, "受注キャンセルによる戻入"));
+
+        orderRepository.updateStatus(orderId, STATUS_CANCELLED);
         return findById(orderId);
     }
 

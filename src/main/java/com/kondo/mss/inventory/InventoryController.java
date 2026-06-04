@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.kondo.mss.common.ApiResponse;
@@ -29,6 +30,13 @@ public class InventoryController {
         InventoryMovement movement = inventoryService.registerMovement(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>("在庫移動を登録しました。", movement));
+    }
+
+    @GetMapping("/api/inventory/movements")
+    public ApiResponse<List<InventoryMovement>> movements(
+            @RequestParam(required = false) Long productId,
+            @RequestParam(defaultValue = "50") int limit) {
+        return new ApiResponse<>("在庫移動履歴を取得しました。", inventoryService.findMovements(productId, limit));
     }
 
     @GetMapping("/api/inventory/stocks")

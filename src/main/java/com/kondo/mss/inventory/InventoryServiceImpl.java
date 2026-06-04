@@ -54,6 +54,15 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
+    public List<InventoryMovement> findMovements(Long productId, int limit) {
+        if (productId != null) {
+            productService.findById(productId);
+        }
+        int safeLimit = Math.min(Math.max(limit, 1), 200);
+        return inventoryRepository.findMovements(productId, safeLimit);
+    }
+
+    @Override
     public List<InventoryStockResponse> findAllCurrentStocks() {
         return inventoryRepository.findAllCurrentStocks();
     }

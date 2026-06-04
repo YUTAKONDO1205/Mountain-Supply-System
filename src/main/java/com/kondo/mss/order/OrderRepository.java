@@ -2,6 +2,7 @@ package com.kondo.mss.order;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,6 +47,53 @@ public class OrderRepository {
                 "quantity", quantity,
                 "unit_price", unitPrice,
                 "line_amount", lineAmount));
+    }
+
+    public List<OrderSummaryResponse> findOrderSummaries(LocalDateTime from, LocalDateTime to, String status) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT o.id,
+                       o.customer_name,
+                       o.order_status,
+                       o.total_amount,
+                       o.ordered_at,
+                       o.created_by,
+                       COUNT(oi.id) AS item_count
+                FROM orders o
+                LEFT JOIN order_items oi ON oi.order_id = o.id
+                """);
+        List<Object> args = new ArrayList<>();
+        List<String> conditions = new ArrayList<>();
+        if (from != null) {
+            conditions.add("o.ordered_at >= ?");
+            args.add(from);
+        }
+        if (to != null) {
+            conditions.add("o.ordered_at <= ?");
+            args.add(to);
+        }
+        if (status != null) {
+            conditions.add("o.order_status = ?");
+            args.add(status);
+        }
+        if (!conditions.isEmpty()) {
+            sql.append("WHERE ").append(String.join(" AND ", conditions)).append("\n");
+        }
+        sql.append("""
+                GROUP BY o.id, o.customer_name, o.order_status, o.total_amount, o.ordered_at, o.created_by
+                ORDER BY o.ordered_at DESC, o.id DESC
+                """);
+        return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> new OrderSummaryResponse(
+                rs.getLong("id"),
+                rs.getString("customer_name"),
+                rs.getString("order_status"),
+                rs.getBigDecimal("total_amount"),
+                rs.getTimestamp("ordered_at").toLocalDateTime(),
+                rs.getString("created_by"),
+                rs.getInt("item_count")), args.toArray());
+    }
+
+    public int updateStatus(long orderId, String status) {
+        return jdbcTemplate.update("UPDATE orders SET order_status = ? WHERE id = ?", status, orderId);
     }
 
     public Optional<OrderHeader> findOrderHeaderById(long orderId) {

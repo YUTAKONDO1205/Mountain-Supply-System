@@ -50,3 +50,9 @@ INSERT INTO inventory_movements (product_id, movement_type, quantity_delta, refe
 (3, 'OUT', -2, 'ORDER', 3, '受注出庫'),
 (5, 'OUT', -3, 'ORDER', 3, '受注出庫'),
 (2, 'OUT', -1, 'ORDER', 3, '受注出庫');
+
+-- IDENTITY列に明示的IDを投入したため、シーケンスの現在値を次の採番位置へ進める。
+-- これを行わないと、実行時の最初のINSERTでid=1が再採番され主キー衝突（500）になる。
+ALTER TABLE app_users ALTER COLUMN id RESTART WITH 3;
+ALTER TABLE products ALTER COLUMN id RESTART WITH 6;
+ALTER TABLE orders ALTER COLUMN id RESTART WITH 4;

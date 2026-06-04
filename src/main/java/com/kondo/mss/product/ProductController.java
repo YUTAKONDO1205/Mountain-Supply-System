@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,6 +31,11 @@ public class ProductController {
         Product created = productService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>("商品を登録しました。", created));
+    }
+
+    @PutMapping("/api/admin/products/{id}")
+    public ApiResponse<Product> update(@PathVariable long id, @Valid @RequestBody ProductUpdateRequest request) {
+        return new ApiResponse<>("商品を更新しました。", productService.update(id, request));
     }
 
     @GetMapping("/api/products")

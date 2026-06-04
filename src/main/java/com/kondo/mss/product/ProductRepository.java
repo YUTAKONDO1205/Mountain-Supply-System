@@ -45,6 +45,24 @@ public class ProductRepository {
         return key.longValue();
     }
 
+    public int update(long id, ProductUpdateRequest request) {
+        String sql = """
+                UPDATE products
+                SET name = ?,
+                    category = ?,
+                    unit_price = ?,
+                    reorder_point = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """;
+        return jdbcTemplate.update(sql,
+                request.name(),
+                request.category(),
+                request.unitPrice(),
+                request.reorderPoint(),
+                id);
+    }
+
     public Optional<Product> findById(long id) {
         String sql = """
                 SELECT id, code, name, category, unit_price, reorder_point

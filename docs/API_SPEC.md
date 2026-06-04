@@ -50,6 +50,37 @@
 
 ---
 
+## 2-2. 商品更新
+### PUT `/api/admin/products/{id}`
+管理者のみ。商品コード（`code`）は変更できません。
+
+**Request**
+```json
+{
+  "name": "山頂ラーメン 改",
+  "category": "食品",
+  "unitPrice": 700.00,
+  "reorderPoint": 12
+}
+```
+
+**Response 200**
+```json
+{
+  "message": "商品を更新しました。",
+  "data": {
+    "id": 1,
+    "code": "FOOD-001",
+    "name": "山頂ラーメン 改",
+    "category": "食品",
+    "unitPrice": 700.00,
+    "reorderPoint": 12
+  }
+}
+```
+
+---
+
 ## 3. 商品一覧
 ### GET `/api/products`
 
@@ -120,6 +151,35 @@
       "category": "食品",
       "reorderPoint": 20,
       "currentStock": 87
+    }
+  ]
+}
+```
+
+---
+
+## 5-2. 在庫移動履歴
+### GET `/api/inventory/movements`
+入出庫の履歴を新しい順に取得します。
+
+**Query (任意)**
+- `productId` … 指定した商品のみ
+- `limit` … 取得件数（既定 50・最大 200）
+
+**Response 200**
+```json
+{
+  "message": "在庫移動履歴を取得しました。",
+  "data": [
+    {
+      "id": 24,
+      "productId": 1,
+      "movementType": "IN",
+      "quantityDelta": 2,
+      "referenceType": "ORDER_CANCEL",
+      "referenceId": 10,
+      "note": "受注キャンセルによる戻入",
+      "createdAt": "2026-04-13T15:20:00"
     }
   ]
 }
@@ -200,6 +260,58 @@
 
 ## 8. 注文詳細
 ### GET `/api/orders/{orderId}`
+
+---
+
+## 8-2. 注文一覧
+### GET `/api/orders`
+任意で期間・ステータスで絞り込めます。
+
+**Query (任意)**
+- `from` (例 `2026-04-01`)
+- `to` (例 `2026-04-30`)
+- `status` (`CONFIRMED` / `CANCELLED`)
+
+**Response 200**
+```json
+{
+  "message": "注文一覧を取得しました。",
+  "data": [
+    {
+      "orderId": 3,
+      "customerName": "山岳救助訓練",
+      "orderStatus": "CONFIRMED",
+      "totalAmount": 5580.00,
+      "orderedAt": "2026-04-10T14:20:00",
+      "createdBy": "admin",
+      "itemCount": 4
+    }
+  ]
+}
+```
+
+---
+
+## 8-3. 注文キャンセル
+### POST `/api/orders/{orderId}/cancel`
+注文を `CANCELLED` にし、明細分の在庫を入庫（`ORDER_CANCEL`）として戻します。  
+既にキャンセル済みの場合は 400 を返します。
+
+**Response 200**
+```json
+{
+  "message": "注文をキャンセルしました。",
+  "data": {
+    "orderId": 10,
+    "customerName": "春山合宿チーム",
+    "orderStatus": "CANCELLED",
+    "totalAmount": 2210.00,
+    "orderedAt": "2026-04-13T15:10:00",
+    "createdBy": "staff",
+    "items": []
+  }
+}
+```
 
 ---
 

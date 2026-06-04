@@ -19,6 +19,32 @@
   - `order_items` が1件登録される
   - `inventory_movements` に `OUT -2` が登録される
 
+### TC-UNIT-003 注文キャンセルで在庫が戻る
+- 対象: `OrderServiceImpl`
+- 前提: 注文が `CONFIRMED`、明細 商品1×2
+- 期待結果:
+  - `inventory_movements` に `IN +2`（`ORDER_CANCEL`）が登録される
+  - 注文ステータスが `CANCELLED` に更新される
+
+### TC-UNIT-004 キャンセル済み注文の再キャンセルは失敗する
+- 対象: `OrderServiceImpl`
+- 前提: 注文が `CANCELLED`
+- 期待結果:
+  - `BusinessException` が発生する
+  - ステータス更新・在庫戻し入庫は行われない
+
+### TC-UNIT-005 重複商品コードで商品登録は失敗する
+- 対象: `ProductServiceImpl`
+- 前提: 既存コード `FOOD-001`
+- 期待結果:
+  - `BusinessException` が発生し、`create` は呼ばれない
+
+### TC-UNIT-006 INの在庫移動を登録できる
+- 対象: `InventoryServiceImpl`
+- 入力: `movementType=in`, `quantity=30`
+- 期待結果:
+  - 大文字 `IN` に正規化され、`quantityDelta = +30` で登録される
+
 ---
 
 ## 2. 結合テスト
@@ -37,6 +63,31 @@
 - 認証: なし
 - 期待結果:
   - HTTP 401
+
+### TC-INT-003 注文一覧を取得できる
+- 対象: `GET /api/orders`
+- 認証: `staff`
+- 期待結果:
+  - HTTP 200、`$.data` が配列
+
+### TC-INT-004 注文登録→キャンセルの一連が成功する
+- 対象: `POST /api/orders` → `POST /api/orders/{id}/cancel`
+- 認証: `staff`
+- 期待結果:
+  - 登録 201 → キャンセル 200（`orderStatus=CANCELLED`）
+  - 同じ注文を再キャンセルすると 400
+
+### TC-INT-005 商品更新の権限
+- 対象: `PUT /api/admin/products/{id}`
+- 期待結果:
+  - `admin` は 200（内容が更新される）
+  - `staff` は 403
+
+### TC-INT-006 在庫移動履歴を取得できる
+- 対象: `GET /api/inventory/movements?productId=1`
+- 認証: `staff`
+- 期待結果:
+  - HTTP 200、`$.data` が配列
 
 ---
 

@@ -26,6 +26,13 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public Product update(long id, ProductUpdateRequest request) {
+        findById(id);
+        productRepository.update(id, request);
+        return findById(id);
+    }
+
+    @Override
     public Product findById(long id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("商品が見つかりません。 productId=" + id));

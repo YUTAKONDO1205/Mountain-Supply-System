@@ -1,11 +1,11 @@
 package com.kondo.mss.inventory;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -44,6 +44,30 @@ public class InventoryRepository {
         params.put("created_at", createdAt);
         Number key = simpleJdbcInsert.executeAndReturnKey(params);
         return key.longValue();
+    }
+
+    public List<InventoryMovement> findMovements(Long productId, int limit) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT id, product_id, movement_type, quantity_delta, reference_type, reference_id, note, created_at
+                FROM inventory_movements
+                """);
+        List<Object> args = new ArrayList<>();
+        if (productId != null) {
+            sql.append("WHERE product_id = ?\n");
+            args.add(productId);
+        }
+        sql.append("ORDER BY created_at DESC, id DESC\n");
+        sql.append("LIMIT ?");
+        args.add(limit);
+        return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> new InventoryMovement(
+                rs.getLong("id"),
+                rs.getLong("product_id"),
+                rs.getString("movement_type"),
+                rs.getInt("quantity_delta"),
+                rs.getString("reference_type"),
+                rs.getObject("reference_id", Long.class),
+                rs.getString("note"),
+                rs.getTimestamp("created_at").toLocalDateTime()), args.toArray());
     }
 
     public int getCurrentStock(long productId) {
