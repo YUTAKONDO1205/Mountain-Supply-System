@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -95,6 +96,30 @@ public class InventoryRepository {
             }
             return result;
         });
+    }
+
+    public Optional<InventoryStockResponse> findStockByProductId(long productId) {
+        String sql = """
+                SELECT p.id AS product_id,
+                       p.code,
+                       p.name,
+                       p.category,
+                       p.reorder_point,
+                       COALESCE(SUM(im.quantity_delta), 0) AS current_stock
+                FROM products p
+                LEFT JOIN inventory_movements im ON im.product_id = p.id
+                WHERE p.id = ?
+                GROUP BY p.id, p.code, p.name, p.category, p.reorder_point
+                """;
+        return jdbcTemplate.query(sql, (rs, rowNum) -> new InventoryStockResponse(
+                rs.getLong("product_id"),
+                rs.getString("code"),
+                rs.getString("name"),
+                rs.getString("category"),
+                rs.getInt("reorder_point"),
+                rs.getInt("current_stock")), productId)
+                .stream()
+                .findFirst();
     }
 
     public List<InventoryStockResponse> findAllCurrentStocks() {

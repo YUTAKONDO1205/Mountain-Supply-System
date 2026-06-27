@@ -49,7 +49,7 @@ class OrderServiceImplTest {
     @Test
     void create_shouldThrow_whenStockIsInsufficient() {
         OrderRequest request = new OrderRequest("テスト客", List.of(new OrderItemRequest(1L, 10)));
-        Product product = new Product(1L, "FOOD-001", "フリーズドライカレー", "食品", new BigDecimal("780.00"), 20);
+        Product product = new Product(1L, "FOOD-001", "フリーズドライカレー", "食品", new BigDecimal("780.00"), 20, true);
 
         when(productRepository.findByIds(List.of(1L))).thenReturn(List.of(product));
         when(inventoryRepository.getCurrentStocks(List.of(1L))).thenReturn(Map.of(1L, 3));
@@ -61,7 +61,7 @@ class OrderServiceImplTest {
     @Test
     void create_shouldReturnOrderDetail_whenRequestIsValid() {
         OrderRequest request = new OrderRequest("テスト客", List.of(new OrderItemRequest(1L, 2)));
-        Product product = new Product(1L, "FOOD-001", "フリーズドライカレー", "食品", new BigDecimal("780.00"), 20);
+        Product product = new Product(1L, "FOOD-001", "フリーズドライカレー", "食品", new BigDecimal("780.00"), 20, true);
         OrderHeader header = new OrderHeader(100L, "テスト客", "CONFIRMED", new BigDecimal("1560.00"), LocalDateTime.now(), "staff");
         OrderItemDetail detail = new OrderItemDetail(1L, "FOOD-001", "フリーズドライカレー", 2, new BigDecimal("780.00"), new BigDecimal("1560.00"));
 
@@ -106,6 +106,45 @@ class OrderServiceImplTest {
 
     @Test
     void findOrders_shouldThrow_whenStatusIsInvalid() {
-        assertThrows(BusinessException.class, () -> orderService.findOrders(null, null, "SHIPPED"));
+        assertThrows(BusinessException.class, () -> orderService.findOrders(null, null, "DRAFT", 0, 20));
+    }
+
+    @Test
+    void ship_shouldMarkShipped_whenOrderIsConfirmed() {
+        OrderHeader header = new OrderHeader(50L, "テスト客", "CONFIRMED", new BigDecimal("1560.00"), LocalDateTime.now(), "staff");
+        when(orderRepository.findOrderHeaderById(50L)).thenReturn(Optional.of(header));
+        when(orderRepository.findOrderItemsByOrderId(50L)).thenReturn(List.of());
+
+        orderService.ship(50L);
+
+        verify(orderRepository).updateStatus(50L, "SHIPPED");
+    }
+
+    @Test
+    void ship_shouldThrow_whenOrderIsNotConfirmed() {
+        OrderHeader header = new OrderHeader(50L, "テスト客", "CANCELLED", new BigDecimal("1560.00"), LocalDateTime.now(), "staff");
+        when(orderRepository.findOrderHeaderById(50L)).thenReturn(Optional.of(header));
+
+        assertThrows(BusinessException.class, () -> orderService.ship(50L));
+        verify(orderRepository, never()).updateStatus(anyLong(), anyString());
+    }
+
+    @Test
+    void cancel_shouldThrow_whenOrderIsAlreadyShipped() {
+        OrderHeader header = new OrderHeader(50L, "テスト客", "SHIPPED", new BigDecimal("1560.00"), LocalDateTime.now(), "staff");
+        when(orderRepository.findOrderHeaderById(50L)).thenReturn(Optional.of(header));
+
+        assertThrows(BusinessException.class, () -> orderService.cancel(50L));
+        verify(orderRepository, never()).updateStatus(anyLong(), anyString());
+    }
+
+    @Test
+    void create_shouldThrow_whenProductIsDeleted() {
+        OrderRequest request = new OrderRequest("テスト客", List.of(new OrderItemRequest(1L, 1)));
+        Product inactive = new Product(1L, "FOOD-001", "フリーズドライカレー", "食品", new BigDecimal("780.00"), 20, false);
+        when(productRepository.findByIds(List.of(1L))).thenReturn(List.of(inactive));
+
+        assertThrows(BusinessException.class, () -> orderService.create(request, "staff"));
+        verify(orderRepository, never()).createOrder(anyString(), anyString(), any(BigDecimal.class), any(LocalDateTime.class), anyString());
     }
 }

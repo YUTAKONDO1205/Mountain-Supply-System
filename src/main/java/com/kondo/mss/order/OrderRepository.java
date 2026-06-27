@@ -49,7 +49,8 @@ public class OrderRepository {
                 "line_amount", lineAmount));
     }
 
-    public List<OrderSummaryResponse> findOrderSummaries(LocalDateTime from, LocalDateTime to, String status) {
+    public List<OrderSummaryResponse> findOrderSummaries(LocalDateTime from, LocalDateTime to, String status,
+                                                         int limit, int offset) {
         StringBuilder sql = new StringBuilder("""
                 SELECT o.id,
                        o.customer_name,
@@ -82,6 +83,9 @@ public class OrderRepository {
                 GROUP BY o.id, o.customer_name, o.order_status, o.total_amount, o.ordered_at, o.created_by
                 ORDER BY o.ordered_at DESC, o.id DESC
                 """);
+        sql.append("LIMIT ? OFFSET ?");
+        args.add(limit);
+        args.add(offset);
         return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> new OrderSummaryResponse(
                 rs.getLong("id"),
                 rs.getString("customer_name"),

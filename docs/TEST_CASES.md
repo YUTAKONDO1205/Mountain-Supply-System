@@ -89,6 +89,29 @@
 - 期待結果:
   - HTTP 200、`$.data` が配列
 
+### TC-INT-007 注文の出荷と出荷後キャンセル禁止
+- 対象: `POST /api/orders` → `POST /api/orders/{id}/ship` → `POST /api/orders/{id}/cancel`
+- 認証: `staff`
+- 期待結果:
+  - 出荷 200（`orderStatus=SHIPPED`）→ その後のキャンセルは 400
+
+### TC-INT-008 削除済み商品は注文できない
+- 対象: `POST /api/admin/products` → `DELETE /api/admin/products/{id}` → `POST /api/orders`
+- 期待結果:
+  - 削除 200（`active=false`）→ その商品の注文は 400
+
+### TC-INT-009 商品単体の在庫を取得できる
+- 対象: `GET /api/inventory/stocks/{productId}`
+- 認証: `staff`
+- 期待結果:
+  - HTTP 200、`$.data.productId` が一致
+
+### TC-INT-010 注文一覧のページング
+- 対象: `GET /api/orders?page=0&size=1`
+- 認証: `staff`
+- 期待結果:
+  - HTTP 200、`$.data` の件数が 1
+
 ---
 
 ## 3. 手動テスト（正常系）

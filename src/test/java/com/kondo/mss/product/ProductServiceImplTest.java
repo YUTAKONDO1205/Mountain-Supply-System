@@ -43,7 +43,7 @@ class ProductServiceImplTest {
     @Test
     void create_shouldReturnCreatedProduct_whenCodeIsNew() {
         ProductCreateRequest request = new ProductCreateRequest("FOOD-099", "新商品", "食品", new BigDecimal("100.00"), 5);
-        Product saved = new Product(7L, "FOOD-099", "新商品", "食品", new BigDecimal("100.00"), 5);
+        Product saved = new Product(7L, "FOOD-099", "新商品", "食品", new BigDecimal("100.00"), 5, true);
 
         when(productRepository.existsByCode("FOOD-099")).thenReturn(false);
         when(productRepository.create(request)).thenReturn(7L);
@@ -58,8 +58,8 @@ class ProductServiceImplTest {
     @Test
     void update_shouldReturnUpdatedProduct_whenProductExists() {
         ProductUpdateRequest request = new ProductUpdateRequest("改名後", "装備", new BigDecimal("999.00"), 9);
-        Product existing = new Product(3L, "GEAR-001", "ガスカートリッジ", "装備", new BigDecimal("650.00"), 15);
-        Product updated = new Product(3L, "GEAR-001", "改名後", "装備", new BigDecimal("999.00"), 9);
+        Product existing = new Product(3L, "GEAR-001", "ガスカートリッジ", "装備", new BigDecimal("650.00"), 15, true);
+        Product updated = new Product(3L, "GEAR-001", "改名後", "装備", new BigDecimal("999.00"), 9, true);
 
         when(productRepository.findById(3L)).thenReturn(Optional.of(existing), Optional.of(updated));
 
@@ -75,5 +75,26 @@ class ProductServiceImplTest {
         when(productRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThrows(NotFoundException.class, () -> productService.findById(999L));
+    }
+
+    @Test
+    void delete_shouldDeactivate_whenProductIsActive() {
+        Product active = new Product(3L, "GEAR-001", "ガスカートリッジ", "装備", new BigDecimal("650.00"), 15, true);
+        Product inactive = new Product(3L, "GEAR-001", "ガスカートリッジ", "装備", new BigDecimal("650.00"), 15, false);
+        when(productRepository.findById(3L)).thenReturn(Optional.of(active), Optional.of(inactive));
+
+        Product result = productService.delete(3L);
+
+        verify(productRepository).deactivate(3L);
+        assertEquals(false, result.active());
+    }
+
+    @Test
+    void delete_shouldThrow_whenProductIsAlreadyDeleted() {
+        Product inactive = new Product(3L, "GEAR-001", "ガスカートリッジ", "装備", new BigDecimal("650.00"), 15, false);
+        when(productRepository.findById(3L)).thenReturn(Optional.of(inactive));
+
+        assertThrows(BusinessException.class, () -> productService.delete(3L));
+        verify(productRepository, never()).deactivate(3L);
     }
 }

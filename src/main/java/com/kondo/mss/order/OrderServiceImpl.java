@@ -25,8 +25,9 @@ import com.kondo.mss.product.ProductRepository;
 public class OrderServiceImpl implements OrderService {
 
     private static final String STATUS_CONFIRMED = "CONFIRMED";
+    private static final String STATUS_SHIPPED = "SHIPPED";
     private static final String STATUS_CANCELLED = "CANCELLED";
-    private static final Set<String> ALLOWED_STATUSES = Set.of(STATUS_CONFIRMED, STATUS_CANCELLED);
+    private static final Set<String> ALLOWED_STATUSES = Set.of(STATUS_CONFIRMED, STATUS_SHIPPED, STATUS_CANCELLED);
 
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
@@ -58,6 +59,13 @@ public class OrderServiceImpl implements OrderService {
         if (productMap.size() != distinctCount) {
             throw new BusinessException("存在しない商品が含まれています。");
         }
+
+        productMap.values().stream()
+                .filter(product -> Boolean.FALSE.equals(product.active()))
+                .findFirst()
+                .ifPresent(product -> {
+                    throw new BusinessException("削除済みの商品は注文できません。 product=" + product.name());
+                });
 
         Map<Long, Integer> stockMap = inventoryRepository.getCurrentStocks(productIds);
 
@@ -95,7 +103,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public List<OrderSummaryResponse> findOrders(LocalDate from, LocalDate to, String status) {
+    public List<OrderSummaryResponse> findOrders(LocalDate from, LocalDate to, String status, int page, int size) {
         LocalDateTime fromDateTime = from == null ? null : from.atStartOfDay();
         LocalDateTime toDateTime = to == null ? null : to.atTime(LocalTime.MAX);
 
@@ -103,11 +111,15 @@ public class OrderServiceImpl implements OrderService {
         if (status != null && !status.isBlank()) {
             normalizedStatus = status.toUpperCase(Locale.ROOT);
             if (!ALLOWED_STATUSES.contains(normalizedStatus)) {
-                throw new BusinessException("statusはCONFIRMEDまたはCANCELLEDで指定してください。");
+                throw new BusinessException("statusはCONFIRMED / SHIPPED / CANCELLEDのいずれかで指定してください。");
             }
         }
 
-        return orderRepository.findOrderSummaries(fromDateTime, toDateTime, normalizedStatus);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        int safePage = Math.max(page, 0);
+        int offset = safePage * safeSize;
+
+        return orderRepository.findOrderSummaries(fromDateTime, toDateTime, normalizedStatus, safeSize, offset);
     }
 
     @Override
@@ -119,12 +131,30 @@ public class OrderServiceImpl implements OrderService {
         if (STATUS_CANCELLED.equals(header.orderStatus())) {
             throw new BusinessException("この注文は既にキャンセル済みです。 orderId=" + orderId);
         }
+        if (STATUS_SHIPPED.equals(header.orderStatus())) {
+            throw new BusinessException("出荷済みの注文はキャンセルできません。 orderId=" + orderId);
+        }
 
         List<OrderItemDetail> items = orderRepository.findOrderItemsByOrderId(orderId);
         items.forEach(item -> inventoryRepository.createMovement(
                 item.productId(), "IN", item.quantity(), "ORDER_CANCEL", orderId, "受注キャンセルによる戻入"));
 
         orderRepository.updateStatus(orderId, STATUS_CANCELLED);
+        return findById(orderId);
+    }
+
+    @Override
+    @Transactional
+    public OrderDetailResponse ship(long orderId) {
+        OrderHeader header = orderRepository.findOrderHeaderById(orderId)
+                .orElseThrow(() -> new NotFoundException("注文が見つかりません。 orderId=" + orderId));
+
+        if (!STATUS_CONFIRMED.equals(header.orderStatus())) {
+            throw new BusinessException(
+                    "確定済み(CONFIRMED)の注文のみ出荷できます。 orderId=" + orderId + ", status=" + header.orderStatus());
+        }
+
+        orderRepository.updateStatus(orderId, STATUS_SHIPPED);
         return findById(orderId);
     }
 

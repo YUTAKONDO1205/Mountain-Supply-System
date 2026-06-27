@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
@@ -14,6 +15,15 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class ProductRepository {
+
+    private static final RowMapper<Product> PRODUCT_ROW_MAPPER = (rs, rowNum) -> new Product(
+            rs.getLong("id"),
+            rs.getString("code"),
+            rs.getString("name"),
+            rs.getString("category"),
+            rs.getBigDecimal("unit_price"),
+            rs.getInt("reorder_point"),
+            rs.getBoolean("is_active"));
 
     private final JdbcTemplate jdbcTemplate;
     private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
@@ -24,6 +34,7 @@ public class ProductRepository {
         this.namedParameterJdbcTemplate = namedParameterJdbcTemplate;
         this.simpleJdbcInsert = new SimpleJdbcInsert(jdbcTemplate)
                 .withTableName("products")
+                .usingColumns("code", "name", "category", "unit_price", "reorder_point")
                 .usingGeneratedKeyColumns("id");
     }
 
@@ -43,6 +54,11 @@ public class ProductRepository {
                 .addValue("unit_price", request.unitPrice())
                 .addValue("reorder_point", request.reorderPoint()));
         return key.longValue();
+    }
+
+    public int deactivate(long id) {
+        return jdbcTemplate.update(
+                "UPDATE products SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = ?", id);
     }
 
     public int update(long id, ProductUpdateRequest request) {
@@ -65,36 +81,23 @@ public class ProductRepository {
 
     public Optional<Product> findById(long id) {
         String sql = """
-                SELECT id, code, name, category, unit_price, reorder_point
+                SELECT id, code, name, category, unit_price, reorder_point, is_active
                 FROM products
                 WHERE id = ?
                 """;
-        return jdbcTemplate.query(sql,
-                        (rs, rowNum) -> new Product(
-                                rs.getLong("id"),
-                                rs.getString("code"),
-                                rs.getString("name"),
-                                rs.getString("category"),
-                                rs.getBigDecimal("unit_price"),
-                                rs.getInt("reorder_point")),
-                        id)
+        return jdbcTemplate.query(sql, PRODUCT_ROW_MAPPER, id)
                 .stream()
                 .findFirst();
     }
 
     public List<Product> findAll() {
         String sql = """
-                SELECT id, code, name, category, unit_price, reorder_point
+                SELECT id, code, name, category, unit_price, reorder_point, is_active
                 FROM products
+                WHERE is_active = TRUE
                 ORDER BY id
                 """;
-        return jdbcTemplate.query(sql, (rs, rowNum) -> new Product(
-                rs.getLong("id"),
-                rs.getString("code"),
-                rs.getString("name"),
-                rs.getString("category"),
-                rs.getBigDecimal("unit_price"),
-                rs.getInt("reorder_point")));
+        return jdbcTemplate.query(sql, PRODUCT_ROW_MAPPER);
     }
 
     public List<Product> findByIds(Collection<Long> ids) {
@@ -102,20 +105,12 @@ public class ProductRepository {
             return List.of();
         }
         String sql = """
-                SELECT id, code, name, category, unit_price, reorder_point
+                SELECT id, code, name, category, unit_price, reorder_point, is_active
                 FROM products
                 WHERE id IN (:ids)
                 ORDER BY id
                 """;
-        return namedParameterJdbcTemplate.query(sql,
-                Map.of("ids", ids),
-                (rs, rowNum) -> new Product(
-                        rs.getLong("id"),
-                        rs.getString("code"),
-                        rs.getString("name"),
-                        rs.getString("category"),
-                        rs.getBigDecimal("unit_price"),
-                        rs.getInt("reorder_point")));
+        return namedParameterJdbcTemplate.query(sql, Map.of("ids", ids), PRODUCT_ROW_MAPPER);
     }
 
     public Map<Long, Product> findByIdsAsMap(Collection<Long> ids) {

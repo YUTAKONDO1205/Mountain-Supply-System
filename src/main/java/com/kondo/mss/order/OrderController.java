@@ -41,8 +41,10 @@ public class OrderController {
     public ApiResponse<List<OrderSummaryResponse>> findAll(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(required = false) String status) {
-        return new ApiResponse<>("注文一覧を取得しました。", orderService.findOrders(from, to, status));
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return new ApiResponse<>("注文一覧を取得しました。", orderService.findOrders(from, to, status, page, size));
     }
 
     @GetMapping("/{orderId}")
@@ -53,5 +55,10 @@ public class OrderController {
     @PostMapping("/{orderId}/cancel")
     public ApiResponse<OrderDetailResponse> cancel(@PathVariable long orderId) {
         return new ApiResponse<>("注文をキャンセルしました。", orderService.cancel(orderId));
+    }
+
+    @PostMapping("/{orderId}/ship")
+    public ApiResponse<OrderDetailResponse> ship(@PathVariable long orderId) {
+        return new ApiResponse<>("注文を出荷しました。", orderService.ship(orderId));
     }
 }

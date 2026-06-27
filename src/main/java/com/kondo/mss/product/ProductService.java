@@ -7,6 +7,8 @@ public interface ProductService {
 
     Product update(long id, ProductUpdateRequest request);
 
+    Product delete(long id);
+
     Product findById(long id);
 
     List<Product> findAll();

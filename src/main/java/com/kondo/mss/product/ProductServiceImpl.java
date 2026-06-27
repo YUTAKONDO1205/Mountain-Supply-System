@@ -33,6 +33,16 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public Product delete(long id) {
+        Product product = findById(id);
+        if (Boolean.FALSE.equals(product.active())) {
+            throw new BusinessException("この商品は既に削除済みです。 productId=" + id);
+        }
+        productRepository.deactivate(id);
+        return findById(id);
+    }
+
+    @Override
     public Product findById(long id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("商品が見つかりません。 productId=" + id));

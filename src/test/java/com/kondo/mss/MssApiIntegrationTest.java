@@ -1,5 +1,6 @@
 package com.kondo.mss;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -92,6 +93,75 @@ class MssApiIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, basicAuth("staff", "mountain123")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test
+    void shipOrder_shouldMarkShipped_andRejectCancelAfterShip() throws Exception {
+        String body = """
+                { "customerName": "出荷テスト隊", "items": [ { "productId": 2, "quantity": 1 } ] }
+                """;
+        MvcResult created = mockMvc.perform(post("/api/orders")
+                        .header(HttpHeaders.AUTHORIZATION, basicAuth("staff", "mountain123"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andReturn();
+        int orderId = JsonPath.read(created.getResponse().getContentAsString(), "$.data.orderId");
+
+        mockMvc.perform(post("/api/orders/" + orderId + "/ship")
+                        .header(HttpHeaders.AUTHORIZATION, basicAuth("staff", "mountain123")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderStatus").value("SHIPPED"));
+
+        mockMvc.perform(post("/api/orders/" + orderId + "/cancel")
+                        .header(HttpHeaders.AUTHORIZATION, basicAuth("staff", "mountain123")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deletedProduct_shouldBeRejected_whenOrdering() throws Exception {
+        String createBody = """
+                { "code": "TEST-DEL-01", "name": "廃番テスト品", "category": "食品", "unitPrice": 100.00, "reorderPoint": 1 }
+                """;
+        MvcResult created = mockMvc.perform(post("/api/admin/products")
+                        .header(HttpHeaders.AUTHORIZATION, basicAuth("admin", "mountain123"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createBody))
+                .andExpect(status().isCreated())
+                .andReturn();
+        int productId = JsonPath.read(created.getResponse().getContentAsString(), "$.data.id");
+
+        mockMvc.perform(delete("/api/admin/products/" + productId)
+                        .header(HttpHeaders.AUTHORIZATION, basicAuth("admin", "mountain123")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.active").value(false));
+
+        String orderBody = """
+                { "customerName": "廃番注文", "items": [ { "productId": %d, "quantity": 1 } ] }
+                """.formatted(productId);
+        mockMvc.perform(post("/api/orders")
+                        .header(HttpHeaders.AUTHORIZATION, basicAuth("staff", "mountain123"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(orderBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void stockByProduct_shouldReturnSingleStock_whenAuthenticated() throws Exception {
+        mockMvc.perform(get("/api/inventory/stocks/1")
+                        .header(HttpHeaders.AUTHORIZATION, basicAuth("staff", "mountain123")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.productId").value(1));
+    }
+
+    @Test
+    void listOrders_shouldRespectPageSize() throws Exception {
+        mockMvc.perform(get("/api/orders")
+                        .param("page", "0")
+                        .param("size", "1")
+                        .header(HttpHeaders.AUTHORIZATION, basicAuth("staff", "mountain123")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1));
     }
 
     private String basicAuth(String username, String password) {

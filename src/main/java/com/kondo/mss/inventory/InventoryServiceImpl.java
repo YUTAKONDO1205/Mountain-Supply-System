@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.kondo.mss.common.BusinessException;
 import com.kondo.mss.common.InsufficientStockException;
+import com.kondo.mss.common.NotFoundException;
 import com.kondo.mss.product.ProductService;
 
 @Service
@@ -65,6 +66,13 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     public List<InventoryStockResponse> findAllCurrentStocks() {
         return inventoryRepository.findAllCurrentStocks();
+    }
+
+    @Override
+    public InventoryStockResponse findStock(long productId) {
+        productService.findById(productId);
+        return inventoryRepository.findStockByProductId(productId)
+                .orElseThrow(() -> new NotFoundException("在庫情報が見つかりません。 productId=" + productId));
     }
 
     @Override

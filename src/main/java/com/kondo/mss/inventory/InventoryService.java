@@ -9,5 +9,7 @@ public interface InventoryService {
 
     List<InventoryStockResponse> findAllCurrentStocks();
 
+    InventoryStockResponse findStock(long productId);
+
     List<LowStockResponse> findLowStockProducts();
 }

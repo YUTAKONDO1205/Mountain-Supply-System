@@ -8,7 +8,9 @@ public interface OrderService {
 
     OrderDetailResponse findById(long orderId);
 
-    List<OrderSummaryResponse> findOrders(LocalDate from, LocalDate to, String status);
+    List<OrderSummaryResponse> findOrders(LocalDate from, LocalDate to, String status, int page, int size);
 
     OrderDetailResponse cancel(long orderId);
+
+    OrderDetailResponse ship(long orderId);
 }

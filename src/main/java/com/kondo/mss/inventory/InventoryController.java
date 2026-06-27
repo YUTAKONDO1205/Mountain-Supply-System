@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,6 +43,11 @@ public class InventoryController {
     @GetMapping("/api/inventory/stocks")
     public ApiResponse<List<InventoryStockResponse>> currentStocks() {
         return new ApiResponse<>("現在庫一覧を取得しました。", inventoryService.findAllCurrentStocks());
+    }
+
+    @GetMapping("/api/inventory/stocks/{productId}")
+    public ApiResponse<InventoryStockResponse> stockByProduct(@PathVariable long productId) {
+        return new ApiResponse<>("現在庫を取得しました。", inventoryService.findStock(productId));
     }
 
     @GetMapping("/api/inventory/low-stocks")
